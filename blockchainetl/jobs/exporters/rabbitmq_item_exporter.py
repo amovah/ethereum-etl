@@ -17,6 +17,7 @@ class RabbitMQItemExporter:
         connection = pika.BlockingConnection(pika.URLParameters("amqp://" + self.connection_url))
         print(self.connection_url)
         self.channel = connection.channel()
+        self.channel.tx_select()
 
         for item_type, queue in item_type_to_queue_mapping.items():
             self.channel.queue_declare(queue=queue, durable=True)
@@ -33,7 +34,16 @@ class RabbitMQItemExporter:
 
     def export_items(self, items):
         for item in items:
-            self.export_item(item)
+            try:
+                self.export_item(item)
+            except Exception as error:
+                self.channel.tx_rollback()
+                raise error
+        try:
+            self.channel.tx_commit()
+        except Exception as error:
+            self.channel.tx_rollback()
+            raise error
 
     def export_item(self, item):
         item_type = item.get('type')
