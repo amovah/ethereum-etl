@@ -3,6 +3,8 @@ import json
 import logging
 
 import pika
+import os
+import time
 
 from blockchainetl.jobs.exporters.converters.composite_item_converter import CompositeItemConverter
 
@@ -11,6 +13,7 @@ class RabbitMQItemExporter:
 
     def __init__(self, output, item_type_to_queue_mapping, converters=()):
         self.item_type_to_queue_mapping = item_type_to_queue_mapping
+        self.queue_name_to_queue = {}
         self.converter = CompositeItemConverter(converters)
         self.connection_url = self.get_connection_url(output)
 
@@ -20,8 +23,7 @@ class RabbitMQItemExporter:
         self.channel.tx_select()
 
         for item_type, queue in item_type_to_queue_mapping.items():
-            self.channel.queue_declare(queue=queue, durable=True)
-
+            self.channel.queue_declare(queue=queue, durable=True, arguments={"x-queue-type": "quorum"})
 
     def get_connection_url(self, output):
         try:
@@ -33,6 +35,24 @@ class RabbitMQItemExporter:
         pass
 
     def export_items(self, items):
+        while True:
+            is_valid = True
+            for item_type, queue in self.item_type_to_queue_mapping.items():
+                result = self.channel.queue_declare(queue=queue, durable=True, arguments={"x-queue-type": "quorum"})
+                queue_size_limit = os.environ['QUEUE_SIZE_LIMIT']
+
+                if result.method.message_count + len(items) > int(queue_size_limit):
+                    is_valid = False
+                    logging.info("Limit exceeded. queue name: " + result.method.queue +
+                    " queue message count: " + str(result.method.message_count) + " items length: " +
+                    str(len(items))) 
+                    break
+
+            if is_valid:
+                break
+
+            time.sleep(10)
+
         for item in items:
             try:
                 self.export_item(item)
