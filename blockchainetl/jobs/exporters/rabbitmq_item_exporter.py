@@ -27,7 +27,7 @@ class RabbitMQItemExporter:
 
     def get_connection_url(self, output):
         try:
-            return output.split('/')[1]
+            return output.split("amqp")[1][1:]
         except KeyError:
             raise Exception('Invalid rabbitmq output param, It should be in format of "amqp/guest:guest@localhost:5672"')
 
