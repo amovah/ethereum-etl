@@ -17,64 +17,103 @@ class RabbitMQItemExporter:
         self.converter = CompositeItemConverter(converters)
         self.connection_url = self.get_connection_url(output)
 
-        connection = pika.BlockingConnection(pika.URLParameters("amqp://" + self.connection_url))
+        connection = pika.BlockingConnection(
+            pika.URLParameters("amqp://" + self.connection_url))
         print(self.connection_url)
         self.channel = connection.channel()
         self.channel.tx_select()
 
         for item_type, queue in item_type_to_queue_mapping.items():
-            self.channel.queue_declare(queue=queue, durable=True, arguments={"x-queue-type": "quorum"})
+            self.channel.queue_declare(queue=queue,
+                                       durable=True,
+                                       arguments={"x-queue-type": "quorum"})
 
     def get_connection_url(self, output):
         try:
             return output.split("amqp")[1][1:]
         except KeyError:
-            raise Exception('Invalid rabbitmq output param, It should be in format of "amqp/guest:guest@localhost:5672"')
+            raise Exception(
+                'Invalid rabbitmq output param, It should be in format of "amqp/guest:guest@localhost:5672"'
+            )
 
     def open(self):
         pass
 
     def export_items(self, items):
-        while True:
-            is_valid = True
-            for item_type, queue in self.item_type_to_queue_mapping.items():
-                result = self.channel.queue_declare(queue=queue, durable=True, arguments={"x-queue-type": "quorum"})
-                queue_size_limit = os.environ['QUEUE_SIZE_LIMIT']
+        try:
+            while True:
+                is_valid = True
+                for item_type, queue in self.item_type_to_queue_mapping.items(
+                ):
+                    result = self.channel.queue_declare(
+                        queue=queue,
+                        durable=True,
+                        arguments={"x-queue-type": "quorum"})
+                    queue_size_limit = os.environ['QUEUE_SIZE_LIMIT']
 
-                if result.method.message_count + len(items) > int(queue_size_limit):
-                    is_valid = False
-                    logging.info("Limit exceeded. queue name: " + result.method.queue +
-                    " queue message count: " + str(result.method.message_count) + " items length: " +
-                    str(len(items))) 
+                    if result.method.message_count + len(items) > int(
+                            queue_size_limit):
+                        is_valid = False
+                        logging.info("Limit exceeded. queue name: " +
+                                     result.method.queue +
+                                     " queue message count: " +
+                                     str(result.method.message_count) +
+                                     " items length: " + str(len(items)))
+                        break
+
+                if is_valid:
                     break
 
-            if is_valid:
-                break
+                time.sleep(10)
 
-            time.sleep(10)
+            for item in items:
+                try:
+                    self.export_item(item)
+                except Exception as error:
+                    self.channel.tx_rollback()
+                    raise error
 
-        for item in items:
-            try:
-                self.export_item(item)
-            except Exception as error:
-                self.channel.tx_rollback()
-                raise error
-        try:
             self.channel.tx_commit()
-        except Exception as error:
-            self.channel.tx_rollback()
-            raise error
+
+        except pika.exceptions.ChannelWrongStateError:
+            connection = pika.BlockingConnection(
+                pika.URLParameters("amqp://" + self.connection_url))
+            self.channel = connection.channel()
+            self.channel.tx_select()
+
+            for item_type, queue in self.item_type_to_queue_mapping.items():
+                self.channel.queue_declare(
+                    queue=queue,
+                    durable=True,
+                    arguments={"x-queue-type": "quorum"})
+
+        except pika.exceptions.AMQPConnectionError:
+            connection = pika.BlockingConnection(
+                pika.URLParameters("amqp://" + self.connection_url))
+            self.channel = connection.channel()
+            self.channel.tx_select()
+
+            for item_type, queue in self.item_type_to_queue_mapping.items():
+                self.channel.queue_declare(
+                    queue=queue,
+                    durable=True,
+                    arguments={"x-queue-type": "quorum"})
 
     def export_item(self, item):
         item_type = item.get('type')
         if item_type is not None and item_type in self.item_type_to_queue_mapping:
             data = json.dumps(item).encode('utf-8')
             logging.debug(data)
-            return self.channel.basic_publish(exchange='', routing_key=self.item_type_to_queue_mapping[item_type], body=data, properties=pika.BasicProperties(
-                delivery_mode = pika.spec.PERSISTENT_DELIVERY_MODE
-                ))
+            return self.channel.basic_publish(
+                exchange='',
+                routing_key=self.item_type_to_queue_mapping[item_type],
+                body=data,
+                properties=pika.BasicProperties(
+                    delivery_mode=pika.spec.PERSISTENT_DELIVERY_MODE))
         else:
-            logging.warning('Topic for item type "{}" is not configured.'.format(item_type))
+            logging.warning(
+                'Topic for item type "{}" is not configured.'.format(
+                    item_type))
 
     def convert_items(self, items):
         for item in items:
