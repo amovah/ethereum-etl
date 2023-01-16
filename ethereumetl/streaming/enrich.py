@@ -137,7 +137,7 @@ def enrich_subtrace(block_number, block_timestamp, trace):
     result['call_type'] = call_type
     result['block_number'] = block_number
     result['block_timestamp'] = block_timestamp
-    result['value'] = int(trace['value'], 16)
+    result['value'] = int(trace['value'], 16) if 'value' in trace else 0
     result['from'] = trace['from']
     result['to'] = trace['to']
     result['input'] = trace['input']
@@ -164,7 +164,7 @@ def enrich_geth_traces(blocks, geth_traces):
 
         while len(sub_traces) > 0:
             sub_trace = sub_traces.pop()
-            traces.append(enrich_subtrace(block_number, block_timestamp, trace))
+            traces.append(enrich_subtrace(block_number, block_timestamp, sub_trace))
             if 'calls' in sub_trace and len(sub_trace['calls']) > 0:
                 sub_traces.extend(sub_trace['calls'])
 
