@@ -129,6 +129,25 @@ def enrich_traces(blocks, traces):
     return result
 
 
+def enrich_subtrace(block_number, block_timestamp, trace):
+    call_type = trace['type']
+
+    result = {}
+    result['type'] = 'geth_trace'
+    result['call_type'] = call_type
+    result['block_number'] = block_number
+    result['block_timestamp'] = block_timestamp
+    result['value'] = int(trace['value'], 16)
+    result['from'] = trace['from']
+    result['to'] = trace['to']
+    result['input'] = trace['input']
+    result['output'] = trace['output']
+    result['gas'] = int(trace['gas'], 16)
+    result['gas_used'] = int(trace['gasUsed'], 16)
+
+    return result
+
+
 def enrich_geth_traces(blocks, geth_traces):
     block_timestamp_map = {}
     for block in blocks:
@@ -136,13 +155,18 @@ def enrich_geth_traces(blocks, geth_traces):
 
     traces = []
     for block_traces in geth_traces:
+        block_number = block_traces['block_number']
+        block_timestamp = block_timestamp_map[block_traces['block_number']]
+
+        sub_traces = []
         for trace in block_traces['transaction_traces']:
-            call_type = trace['type']
-            trace['type'] = 'geth_trace'
-            trace['call_type'] = call_type
-            trace['block_number'] = block_traces['block_number']
-            trace['block_timestamp'] = block_timestamp_map[block_traces['block_number']]
-            traces.append(trace)
+            sub_traces.append(trace)
+
+        while len(sub_traces) > 0:
+            sub_trace = sub_traces.pop()
+            traces.append(enrich_subtrace(block_number, block_timestamp, trace))
+            if 'calls' in sub_trace and len(sub_trace['calls']) > 0:
+                sub_traces.extend(sub_trace['calls'])
 
     return traces
 
