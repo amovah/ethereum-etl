@@ -31,14 +31,9 @@ from ethereumetl.utils import validate_range, rpc_response_to_result
 
 # Exports geth traces
 class ExportGethTracesJob(BaseJob):
-    def __init__(
-            self,
-            start_block,
-            end_block,
-            batch_size,
-            batch_web3_provider,
-            max_workers,
-            item_exporter):
+
+    def __init__(self, start_block, end_block, batch_size, batch_web3_provider, max_workers,
+                 item_exporter):
         validate_range(start_block, end_block)
         self.start_block = start_block
         self.end_block = end_block
@@ -54,11 +49,9 @@ class ExportGethTracesJob(BaseJob):
         self.item_exporter.open()
 
     def _export(self):
-        self.batch_work_executor.execute(
-            range(self.start_block, self.end_block + 1),
-            self._export_batch,
-            total_items=self.end_block - self.start_block + 1
-        )
+        self.batch_work_executor.execute(range(self.start_block, self.end_block + 1),
+                                         self._export_batch,
+                                         total_items=self.end_block - self.start_block + 1)
 
     def _export_batch(self, block_number_batch):
         trace_block_rpc = list(generate_trace_block_by_number_json_rpc(block_number_batch))

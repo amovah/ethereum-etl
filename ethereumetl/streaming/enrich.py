@@ -20,7 +20,6 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-
 import itertools
 from collections import defaultdict
 
@@ -41,10 +40,12 @@ def join(left, right, join_fields, left_fields, right_fields):
     right_fields_as_dict = field_list_to_dict(right_fields)
 
     left_map = defaultdict(list)
-    for item in left: left_map[item[left_join_field]].append(item)
+    for item in left:
+        left_map[item[left_join_field]].append(item)
 
     right_map = defaultdict(list)
-    for item in right: right_map[item[right_join_field]].append(item)
+    for item in right:
+        right_map[item[right_join_field]].append(item)
 
     for key in left_map.keys():
         for left_item, right_item in itertools.product(left_map[key], right_map[key]):
@@ -58,34 +59,19 @@ def join(left, right, join_fields, left_fields, right_fields):
 
 
 def enrich_transactions(transactions, receipts):
-    result = list(join(
-        transactions, receipts, ('hash', 'transaction_hash'),
-        left_fields=[
-            'type',
-            'hash',
-            'nonce',
-            'transaction_index',
-            'from_address',
-            'to_address',
-            'value',
-            'gas',
-            'gas_price',
-            'input',
-            'block_timestamp',
-            'block_number',
-            'block_hash',
-            'max_fee_per_gas',
-            'max_priority_fee_per_gas',
-            'transaction_type'
-        ],
-        right_fields=[
-            ('cumulative_gas_used', 'receipt_cumulative_gas_used'),
-            ('gas_used', 'receipt_gas_used'),
-            ('contract_address', 'receipt_contract_address'),
-            ('root', 'receipt_root'),
-            ('status', 'receipt_status'),
-            ('effective_gas_price', 'receipt_effective_gas_price')
-        ]))
+    result = list(
+        join(transactions,
+             receipts, ('hash', 'transaction_hash'),
+             left_fields=[
+                 'type', 'hash', 'nonce', 'transaction_index', 'from_address', 'to_address',
+                 'value', 'gas', 'gas_price', 'input', 'block_timestamp', 'block_number',
+                 'block_hash', 'max_fee_per_gas', 'max_priority_fee_per_gas', 'transaction_type'
+             ],
+             right_fields=[('cumulative_gas_used', 'receipt_cumulative_gas_used'),
+                           ('gas_used', 'receipt_gas_used'),
+                           ('contract_address', 'receipt_contract_address'),
+                           ('root', 'receipt_root'), ('status', 'receipt_status'),
+                           ('effective_gas_price', 'receipt_effective_gas_price')]))
 
     if len(result) != len(transactions):
         raise ValueError('The number of transactions is wrong ' + str(result))
@@ -94,19 +80,11 @@ def enrich_transactions(transactions, receipts):
 
 
 def enrich_logs(blocks, logs):
-    result = list(join(
-        logs, blocks, ('block_number', 'number'),
-        [
-            'type',
-            'log_index',
-            'transaction_hash',
-            'transaction_index',
-            'address',
-            'data',
-            'topics',
-            'block_number'
-        ],
-        [
+    result = list(
+        join(logs, blocks, ('block_number', 'number'), [
+            'type', 'log_index', 'transaction_hash', 'transaction_index', 'address', 'data',
+            'topics', 'block_number'
+        ], [
             ('timestamp', 'block_timestamp'),
             ('hash', 'block_hash'),
         ]))
@@ -118,19 +96,11 @@ def enrich_logs(blocks, logs):
 
 
 def enrich_token_transfers(blocks, token_transfers):
-    result = list(join(
-        token_transfers, blocks, ('block_number', 'number'),
-        [
-            'type',
-            'token_address',
-            'from_address',
-            'to_address',
-            'value',
-            'transaction_hash',
-            'log_index',
-            'block_number'
-        ],
-        [
+    result = list(
+        join(token_transfers, blocks, ('block_number', 'number'), [
+            'type', 'token_address', 'from_address', 'to_address', 'value', 'transaction_hash',
+            'log_index', 'block_number'
+        ], [
             ('timestamp', 'block_timestamp'),
             ('hash', 'block_hash'),
         ]))
@@ -142,31 +112,13 @@ def enrich_token_transfers(blocks, token_transfers):
 
 
 def enrich_traces(blocks, traces):
-    result = list(join(
-        traces, blocks, ('block_number', 'number'),
-        [
-            'type',
-            'transaction_index',
-            'from_address',
-            'to_address',
-            'value',
-            'input',
-            'output',
-            'trace_type',
-            'call_type',
-            'reward_type',
-            'gas',
-            'gas_used',
-            'subtraces',
-            'trace_address',
-            'error',
-            'status',
-            'transaction_hash',
-            'block_number',
-            'trace_id',
+    result = list(
+        join(traces, blocks, ('block_number', 'number'), [
+            'type', 'transaction_index', 'from_address', 'to_address', 'value', 'input', 'output',
+            'trace_type', 'call_type', 'reward_type', 'gas', 'gas_used', 'subtraces',
+            'trace_address', 'error', 'status', 'transaction_hash', 'block_number', 'trace_id',
             'trace_index'
-        ],
-        [
+        ], [
             ('timestamp', 'block_timestamp'),
             ('hash', 'block_hash'),
         ]))
@@ -177,19 +129,30 @@ def enrich_traces(blocks, traces):
     return result
 
 
+def enrich_geth_traces(blocks, geth_traces):
+    block_timestamp_map = {}
+    for block in blocks:
+        block_timestamp_map[block['number']] = block['timestamp']
+
+    traces = []
+    for block_traces in geth_traces:
+        for trace in block_traces['transaction_traces']:
+            call_type = trace['type']
+            trace['type'] = 'geth_trace'
+            trace['call_type'] = call_type
+            trace['block_number'] = block_traces['block_number']
+            trace['block_timestamp'] = block_timestamp_map[block_traces['block_number']]
+            traces.append(trace)
+
+    return traces
+
+
 def enrich_contracts(blocks, contracts):
-    result = list(join(
-        contracts, blocks, ('block_number', 'number'),
-        [
-            'type',
-            'address',
-            'bytecode',
-            'function_sighashes',
-            'is_erc20',
-            'is_erc721',
+    result = list(
+        join(contracts, blocks, ('block_number', 'number'), [
+            'type', 'address', 'bytecode', 'function_sighashes', 'is_erc20', 'is_erc721',
             'block_number'
-        ],
-        [
+        ], [
             ('timestamp', 'block_timestamp'),
             ('hash', 'block_hash'),
         ]))
@@ -201,21 +164,12 @@ def enrich_contracts(blocks, contracts):
 
 
 def enrich_tokens(blocks, tokens):
-    result = list(join(
-        tokens, blocks, ('block_number', 'number'),
-        [
-            'type',
-            'address',
-            'symbol',
-            'name',
-            'decimals',
-            'total_supply',
-            'block_number'
-        ],
-        [
-            ('timestamp', 'block_timestamp'),
-            ('hash', 'block_hash'),
-        ]))
+    result = list(
+        join(tokens, blocks, ('block_number', 'number'),
+             ['type', 'address', 'symbol', 'name', 'decimals', 'total_supply', 'block_number'], [
+                 ('timestamp', 'block_timestamp'),
+                 ('hash', 'block_hash'),
+             ]))
 
     if len(result) != len(tokens):
         raise ValueError('The number of tokens is wrong ' + str(result))
