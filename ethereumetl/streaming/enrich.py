@@ -141,9 +141,10 @@ def enrich_subtrace(block_number, block_timestamp, trace):
     result['from'] = trace['from']
     result['to'] = trace['to']
     result['input'] = trace['input']
-    result['output'] = trace['output']
+    result['output'] = trace['output'] if 'output' in trace else ''
     result['gas'] = int(trace['gas'], 16)
     result['gas_used'] = int(trace['gasUsed'], 16)
+    result['error'] = True if 'error' in trace else False
 
     return result
 
