@@ -11,7 +11,7 @@ from blockchainetl.jobs.exporters.converters.composite_item_converter import Com
 
 class RabbitMQItemExporter:
 
-    def __init__(self, output, item_type_to_queue_mapping, converters=()):
+    def __init__(self, output, item_type_to_queue_mapping, converters=(), extra={}):
         self.item_type_to_queue_mapping = item_type_to_queue_mapping
         self.queue_name_to_queue = {}
         self.converter = CompositeItemConverter(converters)
@@ -19,7 +19,9 @@ class RabbitMQItemExporter:
 
         connection = pika.BlockingConnection(pika.URLParameters("amqp://" + self.connection_url))
         self.channel = connection.channel()
-        self.channel.tx_select()
+
+        if extra["rabbit_tx"]:
+            self.channel.tx_select()
 
         for item_type, queue in item_type_to_queue_mapping.items():
             self.channel.queue_declare(queue=queue, durable=True, arguments={"x-queue-type": "quorum"})
