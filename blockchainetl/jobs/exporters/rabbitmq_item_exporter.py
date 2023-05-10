@@ -20,8 +20,8 @@ class RabbitMQItemExporter:
         connection = pika.BlockingConnection(pika.URLParameters("amqp://" + self.connection_url))
         self.channel = connection.channel()
 
-        if extra["rabbit_tx"]:
-            self.channel.tx_select()
+        # if extra["rabbit_tx"]:
+        self.channel.tx_select()
 
         for item_type, queue in item_type_to_queue_mapping.items():
             self.channel.queue_declare(queue=queue, durable=True, arguments={"x-queue-type": "quorum"})
