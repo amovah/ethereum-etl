@@ -55,14 +55,17 @@ class EthStreamerAdapter:
 
         last_synced_block = self.read_last_synced_block()
 
-        if len(blocks) > 0:
-            if start_block - 1 != last_synced_block:
+        if start_block - 1 != last_synced_block:
                 raise ValueError("block number skipping detected. last sync block: " + last_synced_block + " target block: " + start_block)
 
         for i, block in enumerate(blocks):
             if i > 0:
                 if block['number'] - blocks[i - 1]['number'] != 1:
                     raise ValueError("out of order block list detected. block at index " + str(i) + " is " + str(block['number']) + ' and block at index ' + str(i - 1) + ' is ' + str(blocks[i-1]['number']))
+
+            if i == 0:
+                if blocks[0] - 1 != last_synced_block:
+                    raise ValueError("block number skipping detected. last sync block: " + last_synced_block + " target block: " + blocks[0])
 
 
         # Export receipts and logs
