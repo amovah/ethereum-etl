@@ -52,6 +52,8 @@ class EthStreamerAdapter:
         if start_block - 1 != last_synced_block:
                 raise ValueError("block number skipping detected. last sync block: " + last_synced_block + " target block: " + start_block)
 
+        blocks = sorted(blocks, key=lambda x:x['number'])
+
         for i, block in enumerate(blocks):
             if i > 0:
                 if block['number'] - blocks[i - 1]['number'] != 1:
