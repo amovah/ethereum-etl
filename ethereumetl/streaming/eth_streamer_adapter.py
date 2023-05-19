@@ -62,8 +62,10 @@ class EthStreamerAdapter:
             if i > 0:
                 if block['number'] - blocks[i - 1]['number'] != 1:
                     raise ValueError("out of order block list detected. block at index " + str(i) + " is " + str(block['number']) + ' and block at index ' + str(i - 1) + ' is ' + str(blocks[i-1]['number']))
-            elif i == 0 and blocks[0] - 1 != last_synced_block:
-                    raise ValueError("block number skipping detected. last sync block: " + last_synced_block + " target block: " + blocks[0])
+            else:
+                if i == 0:
+                    if blocks[0] - 1 != last_synced_block:
+                        raise ValueError("block number skipping detected. last sync block: " + last_synced_block + " target block: " + blocks[0])
 
 
 
