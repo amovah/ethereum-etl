@@ -24,14 +24,14 @@ from blockchainetl.jobs.exporters.console_item_exporter import ConsoleItemExport
 from blockchainetl.jobs.exporters.multi_item_exporter import MultiItemExporter
 
 
-def create_item_exporters(outputs, extra={}):
+def create_item_exporters(outputs):
     split_outputs = [output.strip() for output in outputs.split(',')] if outputs else ['console']
 
-    item_exporters = [create_item_exporter(output, extra) for output in split_outputs]
+    item_exporters = [create_item_exporter(output) for output in split_outputs]
     return MultiItemExporter(item_exporters)
 
 
-def create_item_exporter(output, extra={}):
+def create_item_exporter(output):
     item_exporter_type = determine_item_exporter_type(output)
     if item_exporter_type == ItemExporterType.PUBSUB:
         from blockchainetl.jobs.exporters.google_pubsub_item_exporter import GooglePubSubItemExporter
@@ -61,21 +61,22 @@ def create_item_exporter(output, extra={}):
         from blockchainetl.jobs.exporters.converters.list_field_item_converter import ListFieldItemConverter
         from ethereumetl.streaming.postgres_tables import BLOCKS, TRANSACTIONS, LOGS, TOKEN_TRANSFERS, TRACES, TOKENS, CONTRACTS
 
-        item_exporter = PostgresItemExporter(output,
-                                             item_type_to_insert_stmt_mapping={
-                                                 'block': create_insert_statement_for_table(BLOCKS),
-                                                 'transaction': create_insert_statement_for_table(TRANSACTIONS),
-                                                 'log': create_insert_statement_for_table(LOGS),
-                                                 'token_transfer': create_insert_statement_for_table(TOKEN_TRANSFERS),
-                                                 'trace': create_insert_statement_for_table(TRACES),
-                                                 'token': create_insert_statement_for_table(TOKENS),
-                                                 'contract': create_insert_statement_for_table(CONTRACTS),
-                                             },
-                                             converters=[
-                                                 UnixTimestampItemConverter(),
-                                                 IntToDecimalItemConverter(),
-                                                 ListFieldItemConverter('topics', 'topic', fill=4)
-                                             ])
+        item_exporter = PostgresItemExporter(
+            output,
+            item_type_to_insert_stmt_mapping={
+                'block': create_insert_statement_for_table(BLOCKS),
+                'transaction': create_insert_statement_for_table(TRANSACTIONS),
+                'log': create_insert_statement_for_table(LOGS),
+                'token_transfer': create_insert_statement_for_table(TOKEN_TRANSFERS),
+                'trace': create_insert_statement_for_table(TRACES),
+                'token': create_insert_statement_for_table(TOKENS),
+                'contract': create_insert_statement_for_table(CONTRACTS),
+            },
+            converters=[
+                UnixTimestampItemConverter(),
+                IntToDecimalItemConverter(),
+                ListFieldItemConverter('topics', 'topic', fill=4)
+            ])
     elif item_exporter_type == ItemExporterType.GCS:
         from blockchainetl.jobs.exporters.gcs_item_exporter import GcsItemExporter
         bucket, path = get_bucket_and_path_from_gcs_output(output)
@@ -106,8 +107,7 @@ def create_item_exporter(output, extra={}):
                                                  'contract': 'contracts',
                                                  'token': 'tokens',
                                                  'geth_trace': 'geth_traces',
-                                             },
-                                             extra=extra)
+                                             })
 
     else:
         raise ValueError('Unable to determine item exporter type for output ' + output)
