@@ -42,12 +42,18 @@ class EthStreamerAdapter:
         w3 = build_web3(self.batch_web3_provider)
         return int(w3.eth.getBlock("latest").number)
 
+    def read_last_synced_block(self):
+        with smart_open('last_synced_block.txt', 'r') as last_synced_block_file:
+            return int(last_synced_block_file.read())
 
-    def export_all(self, start_block, end_block, last_synced_block):
+
+    def export_all(self, start_block, end_block):
         # Export blocks and transactions
         blocks, transactions = [], []
         if self._should_export(EntityType.BLOCK) or self._should_export(EntityType.TRANSACTION):
             blocks, transactions = self._export_blocks_and_transactions(start_block, end_block)
+
+        last_synced_block = self.read_last_synced_block()
 
         if start_block - 1 != last_synced_block:
                 raise ValueError("block number skipping detected. last sync block: " + last_synced_block + " target block: " + start_block)
@@ -56,7 +62,7 @@ class EthStreamerAdapter:
             if i > 0:
                 if block['number'] - blocks[i - 1]['number'] != 1:
                     raise ValueError("out of order block list detected. block at index " + str(i) + " is " + str(block['number']) + ' and block at index ' + str(i - 1) + ' is ' + str(blocks[i-1]['number']))
-            elif i == 0 and blocks[0]['number'] - 1 != last_synced_block:
+            elif i == 0 and blocks[0] - 1 != last_synced_block:
                     raise ValueError("block number skipping detected. last sync block: " + last_synced_block + " target block: " + blocks[0])
 
 
