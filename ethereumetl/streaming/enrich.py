@@ -106,7 +106,8 @@ def enrich_token_transfers(blocks, token_transfers):
         ]))
 
     if len(result) != len(token_transfers):
-        raise ValueError('The number of token transfers is wrong ' + str(result))
+        raise ValueError(
+            'The number of token transfers is wrong ' + str(result))
 
     return result
 
@@ -165,7 +166,11 @@ def enrich_geth_traces(blocks, geth_traces):
 
         while len(sub_traces) > 0:
             sub_trace = sub_traces.pop()
-            traces.append(enrich_subtrace(block_number, block_timestamp, sub_trace))
+            if sub_trace == None:
+                continue
+
+            traces.append(enrich_subtrace(
+                block_number, block_timestamp, sub_trace))
             if 'calls' in sub_trace and len(sub_trace['calls']) > 0:
                 sub_traces.extend(sub_trace['calls'])
 
@@ -194,7 +199,7 @@ def enrich_tokens(blocks, tokens):
              ['type', 'address', 'symbol', 'name', 'decimals', 'total_supply', 'block_number'], [
                  ('timestamp', 'block_timestamp'),
                  ('hash', 'block_hash'),
-             ]))
+        ]))
 
     if len(result) != len(tokens):
         raise ValueError('The number of tokens is wrong ' + str(result))
